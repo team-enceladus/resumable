@@ -790,7 +790,7 @@
           var target = $h.getTarget('upload', params);
           var method = $.getOpt('uploadMethod');
 
-          $.xhr.open(method, target);
+          $.xhr.open(method, target, true);
           if ($.getOpt('method') === 'octet') {
             $.xhr.setRequestHeader('Content-Type', 'application/octet-stream');
           }
