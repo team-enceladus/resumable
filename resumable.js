@@ -4,10 +4,8 @@
 * http://github.com/23/resumable.js
 * Steffen Tiedemann Christensen, steffen@23company.com
 */
-
 (function(){
 "use strict";
-
   var Resumable = function(opts){
     if ( !(this instanceof Resumable) ) {
       return new Resumable(opts);
@@ -147,12 +145,12 @@
         if(typeof(o.length)!=='undefined') {
           for (var i=0; i<o.length; i++) {
             // Array or FileList
-            if(callback(o[i])===false) return;
+            if(callback(o[i], i)===false) return;
           }
         } else {
           for (i in o) {
             // Object
-            if(callback(i,o[i])===false) return;
+            if(callback(i,o[i], i)===false) return;
           }
         }
       },
@@ -365,7 +363,7 @@
           var fileTypeFound = false;
           for(var index in o.fileType){
             var extension = '.' + o.fileType[index];
-			if(fileName.toLowerCase().indexOf(extension.toLowerCase(), fileName.length - extension.length) !== -1){
+      if(fileName.toLowerCase().indexOf(extension.toLowerCase(), fileName.length - extension.length) !== -1){
               fileTypeFound = true;
               break;
             }
@@ -544,9 +542,11 @@
         return(uploading);
       };
       $.isComplete = function(){
+        return true;
         var outstanding = false;
         $h.each($.chunks, function(chunk){
           var status = chunk.status();
+          console.log(status)
           if(status=='pending' || status=='uploading' || chunk.preprocessState === 1) {
             outstanding = true;
             return(false);
@@ -610,8 +610,10 @@
           var status = $.status();
           if(status=='success') {
             $.callback(status, $.message());
+            // console.log('test chunk already exists') // dependent on server impl
             $.resumableObj.uploadNextChunk();
           } else {
+            // console.log('test chunk does not exist') // dependent on server impl
             $.send();
           }
         };
@@ -654,7 +656,7 @@
           })
         );
         // Append the relevant chunk and send it
-        $.xhr.open($.getOpt('testMethod'), $h.getTarget('test', params));
+        $.xhr.open($.getOpt('testMethod'), $h.getTarget('test', params), true);
         $.xhr.timeout = $.getOpt('xhrTimeout');
         $.xhr.withCredentials = $.getOpt('withCredentials');
         // Add data from header options
@@ -705,22 +707,24 @@
 
         // Done (either done, failed or retry)
         var doneHandler = function(e){
-          var status = $.status();
-          if(status=='success'||status=='error') {
-            $.callback(status, $.message());
-            $.resumableObj.uploadNextChunk();
-          } else {
-            $.callback('retry', $.message());
-            $.abort();
-            $.retries++;
-            var retryInterval = $.getOpt('chunkRetryInterval');
-            if(retryInterval !== undefined) {
-              $.pendingRetry = true;
-              setTimeout($.send, retryInterval);
+          setImmediate(function() {
+            var status = $.status();
+            if(status=='success'|| status=='error') {
+              $.callback(status, $.message());
+              $.resumableObj.uploadNextChunk();
             } else {
-              $.send();
+              $.callback('retry', $.message());
+              $.abort();
+              $.retries++;
+              var retryInterval = $.getOpt('chunkRetryInterval');
+              if(retryInterval !== undefined) {
+                $.pendingRetry = true;
+                setTimeout($.send, retryInterval);
+              } else {
+                $.send();
+              }
             }
-          }
+          })
         };
         $.xhr.addEventListener('load', doneHandler, false);
         $.xhr.addEventListener('error', doneHandler, false);
@@ -756,41 +760,41 @@
 
         var func = ($.fileObj.file.slice ? 'slice' : ($.fileObj.file.mozSlice ? 'mozSlice' : ($.fileObj.file.webkitSlice ? 'webkitSlice' : 'slice')));
         Promise.resolve($.fileObj.file[func]($.startByte, $.endByte, $.getOpt('setChunkTypeFromFile') ? $.fileObj.file.type : void 0))
-        .then(function(bytes) {
+        .then((blob) => {
           var data = null;
           var params = [];
 
           var parameterNamespace = $.getOpt('parameterNamespace');
-          if ($.getOpt('method') === 'octet') {
-            // Add data from the query options
-            data = bytes;
-            $h.each(query, function (k, v) {
-                params.push([encodeURIComponent(parameterNamespace + k), encodeURIComponent(v)].join('='));
-            });
-          } else {
-            // Add data from the query options
-            data = new FormData();
-            $h.each(query, function (k, v) {
-              data.append(parameterNamespace + k, v);
-              params.push([encodeURIComponent(parameterNamespace + k), encodeURIComponent(v)].join('='));
-            });
-            if ($.getOpt('chunkFormat') == 'blob') {
-                data.append(parameterNamespace + $.getOpt('fileParameterName'), bytes, $.fileObj.fileName);
-            }
-            else if ($.getOpt('chunkFormat') == 'base64') {
-              var fr = new FileReader();
-              fr.onload = function (e) {
-                  data.append(parameterNamespace + $.getOpt('fileParameterName'), fr.result);
-                  $.xhr.send(data);
-              }
-              fr.readAsDataURL(bytes);
-            }
-          }
+                  if ($.getOpt('method') === 'octet') {
+                      // Add data from the query options
+                      data = blob;
+                      $h.each(query, function (k, v) {
+                          params.push([encodeURIComponent(parameterNamespace + k), encodeURIComponent(v)].join('='));
+                      });
+                  } else {
+                      // Add data from the query options
+                      data = new FormData();
+                      $h.each(query, function (k, v) {
+                          data.append(parameterNamespace + k, v);
+                          params.push([encodeURIComponent(parameterNamespace + k), encodeURIComponent(v)].join('='));
+                      });
+                      if ($.getOpt('chunkFormat') == 'blob') {
+                        // data.append(parameterNamespace + $.getOpt('fileParameterName'), blob, $.fileObj.fileName);
+                      }
+                      else if ($.getOpt('chunkFormat') == 'base64') {
+                          var fr = new FileReader();
+                          fr.onload = function (e) {
+                              data.append(parameterNamespace + $.getOpt('fileParameterName'), fr.result);
+                              $.xhr.send(data);
+                          }
+                          fr.readAsDataURL(blob);
+                      }
+                  }
 
           var target = $h.getTarget('upload', params);
           var method = $.getOpt('uploadMethod');
-
-          $.xhr.open(method, target, true);
+          var now = Date.now();
+          $.xhr.open(method, target);
           if ($.getOpt('method') === 'octet') {
             $.xhr.setRequestHeader('Content-Type', 'application/octet-stream');
           }
@@ -805,9 +809,10 @@
           $h.each(customHeaders, function(k,v) {
             $.xhr.setRequestHeader(k, v);
           });
-
           if ($.getOpt('chunkFormat') == 'blob') {
-              $.xhr.send(data);
+            $.xhr.send(blob);
+            //  Test on server, verify that size is 5 bytes.
+            // $.xhr.send(new Blob(['aaaaa']));
           }
         })
       };
@@ -904,12 +909,14 @@
 
       // The are no more outstanding chunks to upload, check is everything is done
       var outstanding = false;
-      $h.each($.files, function(file){
+      $h.each($.files, function(file, i){
         if(!file.isComplete()) {
+          console.log("????")
           outstanding = true;
           return(false);
         }
       });
+      console.log('hi', outstanding)
       if(!outstanding) {
         // All chunks have been uploaded, complete
         $.fire('complete');
