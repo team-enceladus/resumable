@@ -542,7 +542,6 @@
         return(uploading);
       };
       $.isComplete = function(){
-        return true;
         var outstanding = false;
         $h.each($.chunks, function(chunk){
           var status = chunk.status();
