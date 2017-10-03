@@ -35,7 +35,7 @@
     $.defaults = {
       chunkSize:1*1024*1024,
       forceChunkSize:false,
-      simultaneousUploads:3,
+      simultaneousUploads:13,
       fileParameterName:'file',
       chunkNumberParameterName: 'resumableChunkNumber',
       chunkSizeParameterName: 'resumableChunkSize',
@@ -545,7 +545,6 @@
         var outstanding = false;
         $h.each($.chunks, function(chunk){
           var status = chunk.status();
-          console.log(status)
           if(status=='pending' || status=='uploading' || chunk.preprocessState === 1) {
             outstanding = true;
             return(false);
@@ -554,11 +553,11 @@
         return(!outstanding);
       };
       $.pause = function(pause){
-          if(typeof(pause)==='undefined'){
-              $._pause = ($._pause ? false : true);
-          }else{
-              $._pause = pause;
-          }
+        if(typeof(pause)==='undefined'){
+            $._pause = ($._pause ? false : true);
+        }else{
+            $._pause = pause;
+        }
       };
       $.isPaused = function() {
         return $._pause;
@@ -706,11 +705,13 @@
 
         // Done (either done, failed or retry)
         var doneHandler = function(e){
-          setImmediate(function() {
+          setImmediate(() => {
             var status = $.status();
             if(status=='success'|| status=='error') {
               $.callback(status, $.message());
-              $.resumableObj.uploadNextChunk();
+              if (!$.fileObj.isPaused()) {
+                $.resumableObj.uploadNextChunk();
+              }
             } else {
               $.callback('retry', $.message());
               $.abort();
@@ -810,8 +811,7 @@
           });
           if ($.getOpt('chunkFormat') == 'blob') {
             $.xhr.send(blob);
-            //  Test on server, verify that size is 5 bytes.
-            // $.xhr.send(new Blob(['aaaaa']));
+            // $.xhr.send(new Blob(['aaaaa'])); Test            
           }
         })
       };
@@ -910,12 +910,10 @@
       var outstanding = false;
       $h.each($.files, function(file, i){
         if(!file.isComplete()) {
-          console.log("????")
           outstanding = true;
           return(false);
         }
       });
-      console.log('hi', outstanding)
       if(!outstanding) {
         // All chunks have been uploaded, complete
         $.fire('complete');
@@ -1003,7 +1001,7 @@
         $.uploadNextChunk();
       }
     };
-    $.pause = function(){
+    $.pause = function(a){
       // Resume all chunks currently being uploaded
       $h.each($.files, function(file){
         file.abort();
