@@ -1,6 +1,6 @@
 (function() {
   function ResumableHelpers(resumableObj) {
-    return {
+    const $h = {
       stopEvent: function(e){
         e.stopPropagation();
         e.preventDefault();
@@ -67,7 +67,8 @@
 
         return target + separator + joinedParams;
       }
-    }; 
+    };
+    return $h;
   }
   // Node.js-style export for Node and Component
   if (typeof module != 'undefined') {
