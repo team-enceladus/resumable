@@ -17,11 +17,14 @@
     var _error = uniqueIdentifier !== undefined;
 
     // Callback when something happens within the chunk
-    var chunkEvent = function(event, message){
+    var chunkEvent = function(event, message, offset){
       // event can be 'progress', 'success', 'error' or 'retry'
       switch(event){
       case 'progress':
         $.resumableObj.fire('fileProgress', $, message);
+        break;
+      case 'no_network':
+        $.resumableObj.fire('networkDown', $, message);
         break;
       case 'error':
         $.abort();
@@ -32,6 +35,7 @@
       case 'success':
         if(_error) return;
         $.resumableObj.fire('fileProgress', $); // it's at least progress
+        $.resumableObj.fire('chunkFinished', offset);
         if($.isComplete()) {
           $.resumableObj.fire('fileSuccess', $, message);
         }
@@ -97,7 +101,9 @@
       },0);
     };
     $.progress = function(){
-      if(_error) return(1);
+      if(_error) {
+        return(1)
+      };
       // Sum up progress across everything
       var ret = 0;
       var error = false;
@@ -105,7 +111,11 @@
         if(c.status()=='error') error = true;
         ret += c.progress(true); // get chunk progress relative to entire file
       });
-      ret = (error ? 1 : (ret>0.99999 ? 1 : ret));
+      // console.log('got error?', error);
+      if (error) {
+        return $._prevProgress;
+      }
+      ret = (ret>0.99999 ? 1 : ret);
       ret = Math.max($._prevProgress, ret); // We don't want to lose percentages when an upload is paused
       $._prevProgress = ret;
       return(ret);

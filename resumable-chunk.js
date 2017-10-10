@@ -11,9 +11,11 @@
     $.offset = offset;
     $.callback = callback;
     $.lastProgressCallback = (new Date);
+    $.lastStatus = undefined;
     $.tested = false;
     $.retries = 0;
     $.pendingRetry = false;
+    $.lastProgress = 0;
     $.preprocessState = 0; // 0 = unprocessed, 1 = processing, 2 = finished
 
     // Computed properties
@@ -26,6 +28,10 @@
       $.endByte = $.fileObjSize;
     }
     $.xhr = null;
+
+    $.isComplete = function() {
+      return $.status() === 'success';
+    }
 
     // test() makes a GET request without any data to see if the chunk has already been uploaded in a previous session
     $.test = function(){
@@ -136,8 +142,13 @@
       var doneHandler = function(e){
         setImmediate(() => {
           var status = $.status();
-          if(status=='success'|| status=='error') {
-            $.callback(status, $.message());
+          if (e && e.detail && (e.detail.message === 'The Internet connection appears to be offline.')) {
+            $.callback('no_network', $.message());            
+          } else if (e && e.details &&
+            e.detail.message === 'cancelled') {
+            $.callback('cancelled', $.message());
+          } else if(status=='success'|| status=='error') {
+            $.callback(status, $.message(), $.offset);
             if (!$.fileObj.isPaused()) {
               $.resumableObj.uploadNextChunk();
             }
@@ -223,24 +234,30 @@
         var target = $h.getTarget('upload', params);
         var method = $.getOpt('uploadMethod');
         var now = Date.now();
-        $.xhr.open(method, target);
-        if ($.getOpt('method') === 'octet') {
-          $.xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-        }
-        $.xhr.timeout = $.getOpt('xhrTimeout');
-        $.xhr.withCredentials = $.getOpt('withCredentials');
-        // Add data from header options
-        var customHeaders = $.getOpt('headers');
-        if(typeof customHeaders === 'function') {
-          customHeaders = customHeaders($.fileObj, $);
-        }
-
-        $h.each(customHeaders, function(k,v) {
-          $.xhr.setRequestHeader(k, v);
-        });
-        if ($.getOpt('chunkFormat') == 'blob') {
-          $.xhr.send(blob);
-          // $.xhr.send(new Blob(['aaaaa'])); Test            
+        // In the event that the network drops totally,
+        // xhr may be unset before slice() resolves.
+        if ($.xhr !== null) {
+          $.xhr.open(method, target);
+          if ($.getOpt('method') === 'octet') {
+            $.xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+          }
+          $.xhr.timeout = $.getOpt('xhrTimeout');
+          $.xhr.withCredentials = $.getOpt('withCredentials');
+          // Add data from header options
+          var customHeaders = $.getOpt('headers');
+          if(typeof customHeaders === 'function') {
+            customHeaders = customHeaders($.fileObj, $);
+          }
+  
+          $h.each(customHeaders, function(k,v) {
+            $.xhr.setRequestHeader(k, v);
+          });
+          if ($.getOpt('chunkFormat') == 'blob') {
+            $.xhr.send(blob);
+            // $.xhr.send(new Blob(['aaaaa'])); Test            
+          }
+        } else {
+          $.callback('no_network');
         }
       })
     };
@@ -250,30 +267,39 @@
       $.xhr = null;
     };
     $.status = function(){
+      var lastStatus = $.lastStatus;
+      var isConnected = $.resumableObj.isConnectedToNetwork();
       // Returns: 'pending', 'uploading', 'success', 'error'
       if($.pendingRetry) {
         // if pending retry then that's effectively the same as actively uploading,
         // there might just be a slight delay before the retry starts
-        return('uploading');
+        lastStatus = 'uploading';
       } else if(!$.xhr) {
-        return('pending');
-      } else if($.xhr.readyState<4) {
+        lastStatus = 'pending';
+      } else if($.xhr.readyState < 4) {
         // Status is really 'OPENED', 'HEADERS_RECEIVED' or 'LOADING' - meaning that stuff is happening
-        return('uploading');
+        lastStatus = 'uploading';
       } else {
-        if($.xhr.status == 200 || $.xhr.status == 201) {
+        if($.xhr.status === 200 || $.xhr.status === 201) {
           // HTTP 200, 201 (created)
-          return('success');
+          lastStatus = 'success';
+        } else if (!isConnected) {
+          $.abort();
+          lastStatus = 'no_network';
         } else if($h.contains($.getOpt('permanentErrors'), $.xhr.status) || $.retries >= $.getOpt('maxChunkRetries')) {
+          // console.log('perm erros', $.getOpt('permanentErrors'));
+          // console.log('status', $.xhr.status)
           // HTTP 415/500/501, permanent error
-          return('error');
+          lastStatus = 'error';
         } else {
           // this should never happen, but we'll reset and queue a retry
           // a likely case for this would be 503 service unavailable
           $.abort();
-          return('pending');
+          lastStatus = 'pending';
         }
       }
+      $.lastStatus = lastStatus;
+      return lastStatus;
     };
     $.message = function(){
       return($.xhr ? $.xhr.responseText : '');
@@ -284,15 +310,19 @@
       if($.pendingRetry) return(0);
       if(!$.xhr || !$.xhr.status) factor*=.95;
       var s = $.status();
+      // console.log('in chunk progress', s)
       switch(s){
       case 'success':
+        this.lastProgress = (1*factor);
+        break;
+      case 'no_network':
       case 'error':
-        return(1*factor);
       case 'pending':
-        return(0*factor);
+        return this.lastProgress;
       default:
-        return($.loaded/($.endByte-$.startByte)*factor);
+        this.lastProgress = ($.loaded/($.endByte-$.startByte)*factor);
       }
+      return this.lastProgress
     };
     return(this);
   }

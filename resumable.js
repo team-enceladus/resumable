@@ -28,6 +28,7 @@
                    &&
                    (!!Blob.prototype.webkitSlice||!!Blob.prototype.mozSlice||!!Blob.prototype.slice||false)
                    );
+    console.log(this.support);
     if(!this.support) return(false);
 
 
@@ -35,9 +36,10 @@
     var $ = this;
     $.files = [];
     $.defaults = {
+      isConnectedToNetwork: function() {return true},
       chunkSize:1*1024*1024,
       forceChunkSize:false,
-      simultaneousUploads:13,
+      simultaneousUploads: 13,
       fileParameterName:'file',
       chunkNumberParameterName: 'resumableChunkNumber',
       chunkSizeParameterName: 'resumableChunkSize',
@@ -113,6 +115,10 @@
         else { return $opt.defaults[o]; }
       }
     };
+    $.isConnectedToNetwork = function() {
+      return $.getOpt('isConnectedToNetwork')();
+      // return Promise.resolve($.getOpt('isConnectedToNetwork')())
+    }
 
     // EVENTS
     // catchAll(event, ...)
@@ -128,6 +134,7 @@
       for (var i=0; i<arguments.length; i++) args.push(arguments[i]);
       // Find event listeners, and support pseudo-event `catchAll`
       var event = args[0].toLowerCase();
+
       for (var i=0; i<=$.events.length; i+=2) {
         if($.events[i]==event) $.events[i+1].apply($,args.slice(1));
         if($.events[i]=='catchall') $.events[i+1].apply(null,args);
