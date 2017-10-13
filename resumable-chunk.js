@@ -143,6 +143,7 @@
         setImmediate(() => {
           var status = $.status();
           if (e && e.detail && (e.detail.message === 'The Internet connection appears to be offline.')) {
+            $.preprocessState = 0;
             $.callback('no_network', $.message());            
           } else if (e && e.details &&
             e.detail.message === 'cancelled') {
@@ -257,6 +258,7 @@
             // $.xhr.send(new Blob(['aaaaa'])); Test            
           }
         } else {
+          $.preprocessState = 0;
           $.callback('no_network');
         }
       })
