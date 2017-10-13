@@ -1,6 +1,6 @@
 {
   "name": "enceladus-resumable",
-  "version": "0.1.0-dev0003",
+  "version": "0.1.0-dev0004",
   "description": "Fork of the popular 'resumable.js' library for http uploads",
   "main": "resumable.js",
   "scripts": {
