@@ -1,10 +1,13 @@
 {
   "name": "enceladus-resumable",
-  "version": "0.1.0-dev0004",
+  "version": "0.1.0",
   "description": "Fork of the popular 'resumable.js' library for http uploads",
   "main": "resumable.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.com"
   },
   "repository": {
     "type": "git",
