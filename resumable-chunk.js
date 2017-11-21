@@ -43,13 +43,13 @@
       var testHandler = function(e){
         $.tested = true;
         var status = $.status(true);
-        console.log('test result', e, status, $.xhr.status)
+        // console.log('test result', e, status, $.xhr.status)
         if(status=='success') {
           $.callback(status, $.message());
-          console.log('test chunk already exists') // dependent on server impl
+          // console.log('test chunk already exists') // dependent on server impl
           $.resumableObj.uploadNextChunk();
         } else if (status === 'chunk_not_found') {
-          console.log('test chunk does not exist') // dependent on server impl
+          // console.log('test chunk does not exist') // dependent on server impl
           $.send();
         }
       };
@@ -123,10 +123,8 @@
       }
       if($.getOpt('testChunks') && !$.tested) {
         $.test();
-        console.log('return')
         return;
       }
-      console.log('noreturn')
       
       // Set up request and listen for event
       $.xhr = new XMLHttpRequest();
