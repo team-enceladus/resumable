@@ -38,15 +38,18 @@
       // Set up request and listen for event
       $.xhr = new XMLHttpRequest();
 
+
+      // Write custom test status.
       var testHandler = function(e){
         $.tested = true;
-        var status = $.status();
+        var status = $.status(true);
+        console.log('test result', e, status, $.xhr.status)
         if(status=='success') {
           $.callback(status, $.message());
-          // console.log('test chunk already exists') // dependent on server impl
+          console.log('test chunk already exists') // dependent on server impl
           $.resumableObj.uploadNextChunk();
-        } else {
-          // console.log('test chunk does not exist') // dependent on server impl
+        } else if (status === 'chunk_not_found') {
+          console.log('test chunk does not exist') // dependent on server impl
           $.send();
         }
       };
@@ -120,9 +123,11 @@
       }
       if($.getOpt('testChunks') && !$.tested) {
         $.test();
+        console.log('return')
         return;
       }
-
+      console.log('noreturn')
+      
       // Set up request and listen for event
       $.xhr = new XMLHttpRequest();
 
@@ -268,7 +273,7 @@
       if($.xhr) $.xhr.abort();
       $.xhr = null;
     };
-    $.status = function(){
+    $.status = function(testing){
       var lastStatus = $.lastStatus;
       var isConnected = $.resumableObj.isConnectedToNetwork();
       // Returns: 'pending', 'uploading', 'success', 'error'
@@ -278,13 +283,16 @@
         lastStatus = 'uploading';
       } else if(!$.xhr) {
         lastStatus = 'pending';
-      } else if($.xhr.readyState < 4) {
+      } else if($.xhr.readyState < 4 && !testing) {
+        // console.log($.xhr.readyState)
         // Status is really 'OPENED', 'HEADERS_RECEIVED' or 'LOADING' - meaning that stuff is happening
         lastStatus = 'uploading';
       } else {
         if($.xhr.status === 200 || $.xhr.status === 201) {
           // HTTP 200, 201 (created)
           lastStatus = 'success';
+        } else if ($.xhr.status === 404 && testing) {
+          lastStatus = 'chunk_not_found';
         } else if (!isConnected) {
           $.abort();
           lastStatus = 'no_network';
