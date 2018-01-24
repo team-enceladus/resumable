@@ -143,7 +143,7 @@
 
       // Done (either done, failed or retry)
       var doneHandler = function(e){
-        setImmediate(() => {
+        setTimeout(() => {
           var status = $.status();
           if (e && e.detail && (e.detail.message === 'The Internet connection appears to be offline.')) {
             $.preprocessState = 0;
@@ -168,7 +168,7 @@
               $.send();
             }
           }
-        })
+        }, 0)
       };
       $.xhr.addEventListener('load', doneHandler, false);
       $.xhr.addEventListener('error', doneHandler, false);
